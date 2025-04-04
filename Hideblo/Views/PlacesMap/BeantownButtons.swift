@@ -14,7 +14,7 @@ struct BeantownButtons: View {
     var visibleRegion: MKCoordinateRegion?
     var body: some View {
         HStack{
-           /* Button {
+            Button {
                 search(for: "playground")
             }label: {
                 Label("Playgrouns", systemImage: "arrow.up.trash")
@@ -42,14 +42,7 @@ struct BeantownButtons: View {
                 Label("North Shore", systemImage: "water.waves")
             }
             .buttonStyle(.bordered)
-            */
-            /*Button{
-                position = .region()
-            } label: {
-                Label("Boston", systemImage: "location.north.circle.fill")
-            }
-            .buttonStyle(.bordered)
-            */
+            
         }
         .labelStyle(.iconOnly)
     }
@@ -69,7 +62,4 @@ struct BeantownButtons: View {
         }
     }
 }
-
-
-
 

@@ -1,37 +1,54 @@
 //
-//  MapCanonSumidero.swift
+//  MapCañonSumidero.swift
 //  Hideblo
+//
+//  Created by Arael Hidalgo Juárez on 03/04/25.
 //
 
 import SwiftUI
 import MapKit
 
 extension CLLocationCoordinate2D {
-    static let canonSumidero = CLLocationCoordinate2D(latitude: 16.916934, longitude: -92.094446)
-    static let otro = CLLocationCoordinate2D(latitude: 16.90580, longitude: -92.09432)
+    static let canonSumidero = CLLocationCoordinate2D(
+        latitude: 16.916934,
+        longitude: -92.094446
+    )
+    static let otro = CLLocationCoordinate2D(
+        latitude: 16.90580, longitude: -92.09432
+    )
 }
 
-class MapState: ObservableObject {
-    @Published var selectedResult: MKMapItem?
-    @Published var route: MKRoute?
-    @Published var showLookAround: Bool = false  // Nueva variable para controlar Look Around
+extension MKCoordinateRegion{
+    static let boston = MKCoordinateRegion(
+        center: CLLocationCoordinate2D(
+            latitude: 42.360256,
+            longitude: -71.057279),
+        span: MKCoordinateSpan(
+            latitudeDelta: 0.1,
+            longitudeDelta: 0.1)
+    )
+    static let northShore = MKCoordinateRegion(
+        center: CLLocationCoordinate2D(
+            latitude: 42.547408,
+            longitude: -71.870085),
+        span: MKCoordinateSpan(
+            latitudeDelta: 0.5,
+            longitudeDelta: 0.5)
+    )
 }
-
+//Despues esta
 struct MapCanonSumidero: View {
-    @StateObject private var mapState = MapState()
-    @State private var position: MapCameraPosition = .automatic
-
-    var destinationItem: MKMapItem {
-        let placemark = MKPlacemark(coordinate: .otro)
-        let item = MKMapItem(placemark: placemark)
-        item.name = "Lugar de destino"
-        return item
-    }
-
+    @State private var position : MapCameraPosition = .automatic
+    @State private var visibleRegion: MKCoordinateRegion?
+    
+    @State private var searchResults: [MKMapItem] = []
+    @State private var selectedResult: MKMapItem?
+    @State private var route : MKRoute?
+    
     var body: some View {
-        Map(position: $position, selection: $mapState.selectedResult) {
-            Annotation("Cañón", coordinate: .canonSumidero, anchor: .bottom) {
-                ZStack {
+        Map(position: $position, selection: $selectedResult){
+            Annotation("Cañon", coordinate: .canonSumidero, anchor: .bottom){
+                ZStack{
                     RoundedRectangle(cornerRadius: 5)
                         .fill(.background)
                     RoundedRectangle(cornerRadius: 5)
@@ -39,63 +56,57 @@ struct MapCanonSumidero: View {
                     Image(systemName: "location.fill")
                         .padding(5)
                 }
+            
             }
             .annotationTitles(.hidden)
-
-            Annotation("Lugar de destino", coordinate: .otro) {
-                Button {
-                    mapState.selectedResult = destinationItem
-                    mapState.showLookAround = true  // Activamos Look Around
-                } label: {
-                    VStack {
-                        Image(systemName: "car.fill")
-                            .foregroundColor(.blue)
-                            .font(.title)
-                        Text("Destino")
-                            .font(.caption)
-                            .padding(5)
-                            .background(.ultraThinMaterial)
-                            .clipShape(RoundedRectangle(cornerRadius: 5))
-                    }
-                }
+           
+            
+            Marker("Lugar de destino", systemImage: "car.fill",
+                   coordinate: .otro
+            )
+            .tint(.blue)
+            
+            ForEach(searchResults, id: \.self) { result in
+                Marker(item: result)
             }
-
+            .annotationTitles(.hidden)
+            
             UserAnnotation()
-
-            if let route = mapState.route {
+            
+            if let route {
                 MapPolyline(route)
                     .stroke(.blue, lineWidth: 5)
             }
         }
+        //.mapStyle(.hybrid(elevation: .realistic))
+        
         .mapStyle(.standard(elevation: .realistic))
         .safeAreaInset(edge: .bottom) {
-            VStack(spacing: 0) {
-                if let selectedResult = mapState.selectedResult {
-                    ItemInfoView(selectedResult: selectedResult, route: mapState.route)
-                        .frame(height: 128)
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                        .padding([.top, .horizontal])
+            HStack{
+                Spacer()
+                VStack (spacing: 0){
+                    if let selectedResult{
+                        ItemInfoView(selectedResult: selectedResult, route: route)
+                            .frame(height: 128)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .padding([.top, .horizontal])
+                    }
+                    
+                    BeantownButtons(position: $position, searchResults: $searchResults, visibleRegion: visibleRegion)
+                        .padding(.top)
                 }
-
-                if mapState.showLookAround {  // Mostramos Look Around solo si está activado
-                    LookAroundPreview(item: mapState.selectedResult!)
-                        .frame(height: 200)
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                        .padding([.horizontal, .bottom])
-                }
-
-                Button {
-                    mapState.showLookAround.toggle()  // Alternamos Look Around
-                } label: {
-                    Label(mapState.showLookAround ? "Ocultar Look Around" : "Mostrar Look Around", systemImage: "eye")
-                }
-                .buttonStyle(.borderedProminent)
-                .padding(.top)
+                Spacer()
             }
             .background(.thinMaterial)
         }
-        .onChange(of: mapState.selectedResult) { _ in
+        .onChange(of: searchResults){
+            position = .automatic
+        }
+        .onChange(of: selectedResult){
             getDirections()
+        }
+        .onMapCameraChange { context in
+            visibleRegion = context.region
         }
         .mapControls {
             MapUserLocationButton()
@@ -103,23 +114,23 @@ struct MapCanonSumidero: View {
             MapScaleView()
         }
     }
-
     func getDirections() {
-        mapState.route = nil
-        guard let selectedResult = mapState.selectedResult else { return }
-
+        route = nil
+        guard let selectedResult else { return }
+        
         let request = MKDirections.Request()
-        request.source = MKMapItem.forCurrentLocation()
+        request.source = MKMapItem(placemark: MKPlacemark(coordinate: .canonSumidero))
         request.destination = selectedResult
-
+        
         Task {
             let directions = MKDirections(request: request)
-            if let response = try? await directions.calculate() {
-                mapState.route = response.routes.first
-            }
+            let response = try? await directions.calculate()
+            route = response?.routes.first
         }
     }
 }
+
+
 
 #Preview {
     MapCanonSumidero()

@@ -161,10 +161,10 @@ struct PlaceCardView: View {
                     .scaleEffect(CGSize(width: 0.4, height: 0.4))
             }
             
-            Text("Historia:")
+           /* Text("Historia:")
                 .serifText(.title3, weight: .semibold)
                 .padding(.top, 15)
-            
+            */
             // Mock Requirements View
            /* VStack(alignment: .leading, spacing: 4) {
                 Text("Apple Books")
